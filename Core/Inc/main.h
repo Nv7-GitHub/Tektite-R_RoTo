@@ -75,8 +75,10 @@ void Error_Handler(void);
 #define E2B_GPIO_Port GPIOB
 #define E1A_Pin GPIO_PIN_12
 #define E1A_GPIO_Port GPIOB
+#define E1A_EXTI_IRQn EXTI15_10_IRQn
 #define E2A_Pin GPIO_PIN_13
 #define E2A_GPIO_Port GPIOB
+#define E2A_EXTI_IRQn EXTI15_10_IRQn
 #define STOP_Pin GPIO_PIN_14
 #define STOP_GPIO_Port GPIOB
 #define GO_Pin GPIO_PIN_15

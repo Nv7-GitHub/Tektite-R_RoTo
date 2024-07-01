@@ -26,7 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "peripheral.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -96,7 +96,7 @@ int main(void)
   MX_TIM1_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
-
+  PeripheralInit();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -156,7 +156,14 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+/**
+  * @brief  Retargets the C library printf function to the USART.
+  * @PAram  None
+  * @retval None
+  */
+int _write(int file, char *ptr, int len) {
+    CDC_Transmit_FS((uint8_t*) ptr, len); return len;
+}
 /* USER CODE END 4 */
 
 /**
