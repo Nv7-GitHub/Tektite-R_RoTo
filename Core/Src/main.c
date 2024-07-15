@@ -53,7 +53,7 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -97,15 +97,27 @@ int main(void)
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   PeripheralInit();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  float pow = 0;
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+	M1Write(pow);
+	M2Write(pow);
+	pow += 0.0025f;
+	if (pow >= 1.0f) {
+		pow = -1.0f;
+	}
+	HAL_Delay(25);
+	printf("pow:%f,gop:%d,stopp:%d,m1t:%d,m2t:%d\n", pow, GOPressed(), STOPPressed(), M1Ticks, M2Ticks);
+
   }
   /* USER CODE END 3 */
 }

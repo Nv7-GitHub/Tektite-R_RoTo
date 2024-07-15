@@ -6,7 +6,7 @@
  */
 
 
-#include "peripheral.c"
+#include "peripheral.h"
 
 
 BMI088 imu;
@@ -60,6 +60,7 @@ void ESCWrite(float ms) {
 void M1Write(float pow) {
 	if (pow < 0) {
 		HAL_GPIO_WritePin(APHASE_GPIO_Port, APHASE_Pin, GPIO_PIN_RESET);
+		pow *= -1.0f;
 	} else {
 		HAL_GPIO_WritePin(APHASE_GPIO_Port, APHASE_Pin, GPIO_PIN_SET);
 	}
@@ -70,6 +71,7 @@ void M1Write(float pow) {
 void M2Write(float pow) {
 	if (pow < 0) {
 		HAL_GPIO_WritePin(BPHASE_GPIO_Port, BPHASE_Pin, GPIO_PIN_RESET);
+		pow *= -1.0f;
 	} else {
 		HAL_GPIO_WritePin(BPHASE_GPIO_Port, BPHASE_Pin, GPIO_PIN_SET);
 	}
@@ -86,10 +88,11 @@ bool STOPPressed() {
 	return result == 0;
 }
 
-int M1Ticks = 0;
-int M2Ticks = 0;
+volatile int M1Ticks = 0;
+volatile int M2Ticks = 0;
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	//printf("%d\n", GPIO_Pin);
   if (GPIO_Pin == E1A_Pin) {
 	  uint8_t result = HAL_GPIO_ReadPin(E1B_GPIO_Port, E1B_Pin);
 	  if (result == 1) {
@@ -111,5 +114,7 @@ void PeripheralInit() {
 	LEDInit();
 	LEDWrite(255, 255, 255);
 
+	MotorInit();
 	BMI088Init();
+	LEDWrite(0, 0, 0);
 }
