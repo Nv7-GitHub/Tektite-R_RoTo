@@ -25,8 +25,13 @@ void M2Write(float pow); // -1 to 1
 bool GOPressed();
 bool STOPPressed();
 
-extern volatile int M1Ticks;
-extern volatile int M2Ticks;
+void EncoderReset();
+void EncoderUpdate();
+
+extern int M1Ticks;
+extern int M2Ticks;
+extern float M1Vel;
+extern float M2Vel;
 
 
 #endif /* INC_PERIPHERAL_H_ */

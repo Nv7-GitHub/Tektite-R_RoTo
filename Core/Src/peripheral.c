@@ -88,26 +88,82 @@ bool STOPPressed() {
 	return result == 0;
 }
 
-volatile int M1Ticks = 0;
-volatile int M2Ticks = 0;
+// Encoders
+extern volatile uint32_t UptimeMillis;
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	//printf("%d\n", GPIO_Pin);
-  if (GPIO_Pin == E1A_Pin) {
-	  uint8_t result = HAL_GPIO_ReadPin(E1B_GPIO_Port, E1B_Pin);
-	  if (result == 1) {
-		  M1Ticks++;
-	  } else {
-		  M1Ticks--;
-	  }
-  } else if (GPIO_Pin == E2A_Pin) {
-	  uint8_t result = HAL_GPIO_ReadPin(E2B_GPIO_Port, E2B_Pin);
-	  if (result == 1) {
-		  M2Ticks++;
-	  } else {
-		  M2Ticks--;
-	  }
-  }
+static inline uint32_t GetMicros()
+{
+    uint32_t ms;
+    uint32_t st;
+
+    do
+    {
+        ms = UptimeMillis;
+        st = SysTick->VAL;
+        asm volatile("nop");
+        asm volatile("nop");
+    } while (ms != UptimeMillis);
+
+    return ms * 1000 - st / ((SysTick->LOAD + 1) / 1000);
+}
+
+int M1Ticks = 0;
+int M2Ticks = 0;
+float M1Vel = 0;
+float M2Vel = 0;
+uint32_t m1prev = 0;
+uint32_t m2prev = 0;
+
+uint32_t prevEncoderUpdate;
+
+void EncoderInit() {
+	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
+	HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
+}
+
+void EncoderReset() {
+	M1Ticks = 0;
+	M2Ticks = 0;
+	M1Vel = 0;
+	M2Vel = 0;
+	m1prev = 0;
+	m2prev = 0;
+	prevEncoderUpdate = GetMicros();
+}
+
+// Modified version of https://www.steppeschool.com/pages/blog/stm32-timer-encoder-mode
+void updateEncoder(TIM_HandleTypeDef *htim, int* ticks, float* vel, uint32_t* prev, float dt) {
+	uint32_t temp = __HAL_TIM_GET_COUNTER(htim);
+	int delta = 0;
+	if (temp > *prev) {
+		if (__HAL_TIM_IS_TIM_COUNTING_DOWN(htim)) {
+			delta = -(*prev) - (__HAL_TIM_GET_AUTORELOAD(htim)-temp);
+		} else {
+			delta = temp - *prev;
+		}
+	} else if (temp < *prev) {
+		if (__HAL_TIM_IS_TIM_COUNTING_DOWN(htim)) {
+			delta = temp - *prev;
+		} else {
+			delta = temp+__HAL_TIM_GET_AUTORELOAD(htim) - *prev;
+		}
+	}
+
+	*ticks += delta;
+	*prev = temp;
+	*vel = ((float)delta)/dt;
+}
+
+void EncoderUpdate() {
+	uint32_t currT = GetMicros();
+	uint32_t diffT = currT - prevEncoderUpdate;
+	if (diffT == 0) {
+		diffT++;
+	}
+	float dt = ((float)diffT)/1000000.0f;
+	updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt);
+	updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt);
+	prevEncoderUpdate = currT;
 }
 
 void PeripheralInit() {
@@ -115,6 +171,7 @@ void PeripheralInit() {
 	LEDWrite(255, 255, 255);
 
 	MotorInit();
+	EncoderInit();
 	BMI088Init();
 	LEDWrite(0, 0, 0);
 }

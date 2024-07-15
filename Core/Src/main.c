@@ -95,8 +95,11 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM1_Init();
   MX_ADC1_Init();
+  MX_TIM3_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   PeripheralInit();
+  EncoderReset();
 
   /* USER CODE END 2 */
 
@@ -108,6 +111,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	EncoderUpdate();
 
 	M1Write(pow);
 	M2Write(pow);
@@ -116,7 +120,7 @@ int main(void)
 		pow = -1.0f;
 	}
 	HAL_Delay(25);
-	printf("pow:%f,gop:%d,stopp:%d,m1t:%d,m2t:%d\n", pow, GOPressed(), STOPPressed(), M1Ticks, M2Ticks);
+	printf("pow:%f,gop:%d,stopp:%d,m1t:%d,m2t:%d,m1v:%f,m2v:%f\n", pow, GOPressed(), STOPPressed(), M1Ticks, M2Ticks, M1Vel, M2Vel);
 
   }
   /* USER CODE END 3 */
