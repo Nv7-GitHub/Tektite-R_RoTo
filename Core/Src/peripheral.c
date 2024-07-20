@@ -45,6 +45,11 @@ void BMI088Init() {
 	}
 }
 
+float GetGZ() {
+	BMI088_ReadGyroscope(&imu);
+	return imu.gyr_rps[2];
+}
+
 void MotorInit() {
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1); // ESC1
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2); // Motor 1
@@ -56,15 +61,17 @@ void ESCWrite(float ms) {
 	htim2.Instance->CCR1 = (int)(ms*50.0f);
 }
 
+float battMult = 0.0f;
+
 // Power out, -1 to 1
 void M1Write(float pow) {
 	if (pow < 0) {
-		HAL_GPIO_WritePin(APHASE_GPIO_Port, APHASE_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(APHASE_GPIO_Port, APHASE_Pin, GPIO_PIN_SET);
 		pow *= -1.0f;
 	} else {
-		HAL_GPIO_WritePin(APHASE_GPIO_Port, APHASE_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(APHASE_GPIO_Port, APHASE_Pin, GPIO_PIN_RESET);
 	}
-	htim2.Instance->CCR2 = pow*1000.0f;
+	htim2.Instance->CCR2 = battMult*pow*1000.0f;
 }
 
 // Power out, -1 to 1
@@ -75,7 +82,7 @@ void M2Write(float pow) {
 	} else {
 		HAL_GPIO_WritePin(BPHASE_GPIO_Port, BPHASE_Pin, GPIO_PIN_SET);
 	}
-	htim2.Instance->CCR3 = pow*1000.0f;
+	htim2.Instance->CCR3 = battMult*pow*1000.0f;
 }
 
 // Buttons
@@ -129,6 +136,13 @@ void EncoderReset() {
 	m1prev = 0;
 	m2prev = 0;
 	prevEncoderUpdate = GetMicros();
+	battMult = 6.0f/BattVoltage();
+	// Battery <6V
+	if (battMult > 1.0f) {
+		battMult = 1.0f;
+	} else if (battMult < -1.0f) {
+		battMult = -1.0f;
+	}
 }
 
 // Modified version of https://www.steppeschool.com/pages/blog/stm32-timer-encoder-mode

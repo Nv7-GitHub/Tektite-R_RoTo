@@ -18,7 +18,7 @@ void ConnectionUpdate() {
 		commandAvailable = false;
 		switch (command.type) {
 		case SELF_TEST:
-			//SelfTest(); // TODO
+			SelfTest();
 			break;
 
 		case TRANSMIT:
