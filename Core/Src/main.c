@@ -27,6 +27,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "peripheral.h"
+#include "connection.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -53,7 +54,7 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -100,28 +101,19 @@ int main(void)
   /* USER CODE BEGIN 2 */
   PeripheralInit();
   EncoderReset();
+  ReadData();
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  float pow = 0;
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 	EncoderUpdate();
-
-	M1Write(pow);
-	M2Write(pow);
-	pow += 0.0025f;
-	if (pow >= 1.0f) {
-		pow = -1.0f;
-	}
-	HAL_Delay(25);
-	printf("pow:%f,gop:%d,stopp:%d,m1t:%d,m2t:%d,m1v:%f,m2v:%f\n", pow, GOPressed(), STOPPressed(), M1Ticks, M2Ticks, M1Vel, M2Vel);
-
+	ConnectionUpdate();
   }
   /* USER CODE END 3 */
 }

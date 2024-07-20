@@ -17,6 +17,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+void Error(char* err);
+
 void PeripheralInit();
 void ESCWrite(float ms); // PWM ms
 void M1Write(float pow); // -1 to 1
