@@ -7,6 +7,7 @@
 
 
 #include "connection.h"
+#include "control.h"
 
 Config configCommand;
 bool configCommandAvailable = false;
