@@ -14,5 +14,6 @@
 #include <stdlib.h>
 
 void SelfTest();
+void RunMoves();
 
 #endif /* INC_CONTROL_H_ */

@@ -114,9 +114,10 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	//ConnectionUpdate();
 	//LEDWrite(64, 64, 64);
+
 	  EncoderUpdate();
 	  if (HAL_GetTick() % 50 == 0) {
-		  printf("m1:%d,m2:%d,m1v:%f,m2v:%f\n", M1Ticks, M2Ticks, M1Vel, M2Vel);
+		  printf("m1t:%d,m2t:%d,m1v:%f,m2v:%f,cnt:%d\n", M1Ticks, M2Ticks, M1Vel, M2Vel, htim3.Instance->CNT);
 	  }
   }
   /* USER CODE END 3 */

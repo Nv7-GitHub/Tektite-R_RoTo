@@ -15,6 +15,10 @@ Command command;
 bool commandAvailable = false;
 
 void ConnectionUpdate() {
+	if (GOPressed()) {
+		RunMoves();
+	}
+
 	if (commandAvailable) {
 		commandAvailable = false;
 		switch (command.type) {

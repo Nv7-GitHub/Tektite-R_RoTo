@@ -34,12 +34,14 @@ typedef struct {
 	float kp_hold;
 	float kp_straight;
 	float kp_velocity;
+	float dowel_off;
 
 	float turn_accel_time;
 	float straight_accel_time;
 
 	float velocity;
 	float velocity_twoff;
+	float friction;
 	float time;
 	float vtime;
 } Config;
@@ -51,6 +53,7 @@ typedef struct {
 
 	Config config;
 	float track_width_ticks;
+	float max_vel;
 
 	int moveCount;
 	float turn[256];

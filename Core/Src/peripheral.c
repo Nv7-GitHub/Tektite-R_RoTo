@@ -136,8 +136,8 @@ void EncoderReset() {
 	m1prev = 0;
 	m2prev = 0;
 	prevEncoderUpdate = GetMicros();
-	battMult = 6.0f/BattVoltage();
-	// Battery <6V
+	battMult = 5.0f/BattVoltage();
+	// Battery <5V
 	if (battMult > 1.0f) {
 		battMult = 1.0f;
 	} else if (battMult < -1.0f) {
@@ -146,7 +146,7 @@ void EncoderReset() {
 }
 
 // Modified version of https://www.steppeschool.com/pages/blog/stm32-timer-encoder-mode
-void updateEncoder(TIM_HandleTypeDef *htim, int* ticks, float* vel, uint32_t* prev, float dt) {
+void updateEncoder(TIM_HandleTypeDef *htim, int* ticks, float* vel, uint32_t* prev, float dt, int mult) {
 	uint32_t temp = __HAL_TIM_GET_COUNTER(htim);
 	int delta = 0;
 	if (temp > *prev) {
@@ -163,6 +163,7 @@ void updateEncoder(TIM_HandleTypeDef *htim, int* ticks, float* vel, uint32_t* pr
 		}
 	}
 
+	delta *= mult;
 	*ticks += delta;
 	*prev = temp;
 	*vel = ((float)delta)/dt;
@@ -175,8 +176,8 @@ void EncoderUpdate() {
 		diffT++;
 	}
 	float dt = ((float)diffT)/1000000.0f;
-	updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt);
-	updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt);
+	updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt, -1);
+	updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt, 1);
 	prevEncoderUpdate = currT;
 }
 
