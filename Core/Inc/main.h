@@ -69,6 +69,8 @@ void Error_Handler(void);
 #define GYRO_CS_GPIO_Port GPIOB
 #define ACCEL_CS_Pin GPIO_PIN_1
 #define ACCEL_CS_GPIO_Port GPIOB
+#define BOOSTON_Pin GPIO_PIN_13
+#define BOOSTON_GPIO_Port GPIOB
 #define STOP_Pin GPIO_PIN_14
 #define STOP_GPIO_Port GPIOB
 #define GO_Pin GPIO_PIN_15

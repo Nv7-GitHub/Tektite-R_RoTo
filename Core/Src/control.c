@@ -65,7 +65,7 @@ bool Move(float ticks, float tw_off) {
 			return false;
 		}
 
-		HAL_Delay(1); // 1000Hz control loop
+		HAL_Delay(5); // 200Hz control loop
 	}
 
 	// Slow part (get accurate position)
@@ -90,7 +90,7 @@ bool Move(float ticks, float tw_off) {
 			return false;
 		}
 
-		HAL_Delay(1); // 1000Hz control loop
+		HAL_Delay(5); // 200Hz control loop
 	}
 	M1Write(0.0);
 	M2Write(0.0);
@@ -154,7 +154,7 @@ bool Turn(float deg) {
 			return false;
 		}
 
-		HAL_Delay(1); // 1000Hz control loop
+		HAL_Delay(1); // 200Hz control loop
 	}
 	M1Write(0.0);
 	M2Write(0.0);
@@ -175,7 +175,7 @@ float SelfTest90() {
 			return -1;
 		}
 
-		HAL_Delay(1);
+		HAL_Delay(5);
 	}
 
 	M1Write(0.0);
@@ -194,7 +194,7 @@ float SelfTest90() {
 			}
 			return -1;
 		}
-		HAL_Delay(1);
+		HAL_Delay(5);
 	}
 	return fabs(ang);
 }
@@ -226,7 +226,7 @@ void SelfTest() {
 	// Self-test the rotation
 	LEDWrite(0, 0, 0);
 
-	M1Write(0.5);
+	M1Write(0.25);
 	float ang = SelfTest90();
 	if (ang < 0) {
 		return;
@@ -236,7 +236,7 @@ void SelfTest() {
 
 	EncoderReset();
 
-	M2Write(0.5);
+	M2Write(0.25);
 	ang = SelfTest90();
 	if (ang < 0) {
 		return;
@@ -244,20 +244,26 @@ void SelfTest() {
 	M2Write(0.0);
 	float tw2 = fabs(M2Ticks/ang);
 
-	while (1) {
-		printf("%f %f\n", tw1, tw2);
-		HAL_Delay(100);
-	}
-
 	data.track_width_ticks = (tw1 + tw2)/2;
 	WriteData();
 
 	// Max velocity testing
+	M1Write(0.5);
+	M2Write(0.5);
+	uint32_t start = HAL_GetTick();
+	while (HAL_GetTick() - start < 50) {
+		if (!HandleStop()) {
+			return;
+		}
+		HAL_Delay(5);
+	}
+
 	M1Write(1.0);
 	M2Write(1.0);
-	uint32_t start = HAL_GetTick();
+	start = HAL_GetTick();
 	float maxVel = 0;
-	while (HAL_GetTick() - start > 500) {
+	while (HAL_GetTick() - start < 900) {
+		EncoderUpdate();
 		if (!HandleStop()) {
 			return;
 		}
@@ -267,6 +273,7 @@ void SelfTest() {
 		if (M2Vel > maxVel) {
 			maxVel = M2Vel;
 		}
+		HAL_Delay(5);
 	}
 	M1Write(0.0);
 	M2Write(0.0);
@@ -316,7 +323,7 @@ void End(float ticks, float tw_off, float time) {
 		if (!HandleStop()) {
 			return;
 		}
-		HAL_Delay(1);
+		HAL_Delay(5);
 	}
 
 	// Correct at the end
@@ -341,7 +348,7 @@ void End(float ticks, float tw_off, float time) {
 		if (!HandleStop()) {
 			return;
 		}
-		HAL_Delay(1);
+		HAL_Delay(5);
 	}
 
 	return;

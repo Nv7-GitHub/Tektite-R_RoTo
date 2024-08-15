@@ -51,15 +51,11 @@ float GetGZ() {
 }
 
 void MotorInit() {
-	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1); // ESC1
+	//HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1); // ESC1
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2); // Motor 1
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3); // Motor 2
 }
 
-// ms of PWM for the ESC
-void ESCWrite(float ms) {
-	htim2.Instance->CCR1 = (int)(ms*50.0f);
-}
 
 float battMult = 0.0f;
 
@@ -176,8 +172,8 @@ void EncoderUpdate() {
 		diffT++;
 	}
 	float dt = ((float)diffT)/1000000.0f;
-	updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt, -1);
-	updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt, 1);
+	updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt, 1);
+	updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt, -1);
 	prevEncoderUpdate = currT;
 }
 

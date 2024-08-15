@@ -19,6 +19,16 @@ void ConnectionUpdate() {
 		RunMoves();
 	}
 
+	if (configCommandAvailable) {
+		commandAvailable = false;
+		configCommandAvailable = false;
+		data.config = configCommand;
+		WriteData();
+		uint8_t buf = 1;
+		CDC_Transmit_FS(&buf, sizeof(buf));
+		return;
+	}
+
 	if (commandAvailable) {
 		commandAvailable = false;
 		switch (command.type) {
@@ -31,6 +41,7 @@ void ConnectionUpdate() {
 			int cnt = command.ticks;
 			command.type = TURN_MOVE;
 			data.moveCount = 0;
+			commandAvailable = false;
 			CDC_Transmit_FS(&buf, sizeof(buf));
 			for (int i = 0; i < cnt; i++) {
 				while (!commandAvailable) {
@@ -55,14 +66,6 @@ void ConnectionUpdate() {
 			break;
 		}
 	}
-
-	if (configCommandAvailable) {
-		configCommandAvailable = false;
-		data.config = configCommand;
-		WriteData();
-		uint8_t buf = 1;
-		CDC_Transmit_FS(&buf, sizeof(buf));
-	}
 }
 
 
@@ -71,6 +74,8 @@ void WriteData() {
 	static FLASH_EraseInitTypeDef EraseInitStruct;
 	EraseInitStruct.TypeErase = FLASH_TYPEERASE_SECTORS;
 	EraseInitStruct.VoltageRange  = FLASH_VOLTAGE_RANGE_3;
+	EraseInitStruct.Sector = FLASH_SECTOR_5;
+	EraseInitStruct.NbSectors = 1;
 	uint32_t SECTORError;
 
 	HAL_FLASH_Unlock();

@@ -103,6 +103,8 @@ int main(void)
   ReadData();
   EncoderReset();
 
+  uint32_t lastPrint = HAL_GetTick();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -114,11 +116,19 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	//ConnectionUpdate();
 	//LEDWrite(64, 64, 64);
-
+	  if (GOPressed()) {
+		  M1Write(1.0);
+		  M2Write(1.0);
+	  } else if (STOPPressed()) {
+		  M1Write(0.0);
+		  M2Write(0.0);
+	  }
 	  EncoderUpdate();
-	  if (HAL_GetTick() % 50 == 0) {
+	  if (HAL_GetTick() - lastPrint > 50) {
+		  lastPrint = HAL_GetTick();
 		  printf("m1t:%d,m2t:%d,m1v:%f,m2v:%f,cnt:%d\n", M1Ticks, M2Ticks, M1Vel, M2Vel, htim3.Instance->CNT);
 	  }
+	  HAL_Delay(5);
   }
   /* USER CODE END 3 */
 }
