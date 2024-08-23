@@ -209,7 +209,7 @@ void SelfTest() {
 		if (pressed && !GOPressed()) {
 			break;
 		}
-		if (stopPressed && !stopPressed) {
+		if (stopPressed && !STOPPressed()) {
 			return;
 		}
 		if (GOPressed()) {
@@ -243,9 +243,7 @@ void SelfTest() {
 	}
 	M2Write(0.0);
 	float tw2 = fabs(M2Ticks/ang);
-
 	data.track_width_ticks = (tw1 + tw2)/2;
-	WriteData();
 
 	// Max velocity testing
 	M1Write(0.5);
@@ -288,7 +286,7 @@ void SelfTest() {
 		if (pressed && !GOPressed()) {
 			break;
 		}
-		if (stopPressed && !stopPressed) {
+		if (stopPressed && !STOPPressed()) {
 			return;
 		}
 		if (GOPressed()) {
@@ -301,6 +299,7 @@ void SelfTest() {
 
 		EncoderReset();
 	}
+	LEDWrite(0, 0, 255);
 	Move(10000, 0);
 }
 

@@ -61,6 +61,11 @@ float battMult = 0.0f;
 
 // Power out, -1 to 1
 void M1Write(float pow) {
+	if (pow > 1.0f) {
+		pow = 1.0f;
+	} else if (pow < -1.0f) {
+		pow = -1.0f;
+	}
 	if (pow < 0) {
 		HAL_GPIO_WritePin(APHASE_GPIO_Port, APHASE_Pin, GPIO_PIN_SET);
 		pow *= -1.0f;
@@ -72,6 +77,11 @@ void M1Write(float pow) {
 
 // Power out, -1 to 1
 void M2Write(float pow) {
+	if (pow > 1.0f) {
+		pow = 1.0f;
+	} else if (pow < -1.0f) {
+		pow = -1.0f;
+	}
 	if (pow < 0) {
 		HAL_GPIO_WritePin(BPHASE_GPIO_Port, BPHASE_Pin, GPIO_PIN_RESET);
 		pow *= -1.0f;
@@ -172,8 +182,8 @@ void EncoderUpdate() {
 		diffT++;
 	}
 	float dt = ((float)diffT)/1000000.0f;
-	updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt, 1);
-	updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt, -1);
+	updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt, -1);
+	updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt, 1);
 	prevEncoderUpdate = currT;
 }
 

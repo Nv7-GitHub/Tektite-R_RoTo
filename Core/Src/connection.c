@@ -87,8 +87,8 @@ void WriteData() {
 
 
 	uint32_t* dataPtr = (uint32_t*)&data;
-	for (uint32_t i = 0; i < sizeof(data) - (256 - data.moveCount)*12; i += 4) { // Write only moves that are needed
-		if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, 0x08020000 + 4*i, dataPtr[i]) != HAL_OK) {
+	for (uint32_t i = 0; i < sizeof(data) - (256 - data.moveCount)*12; i++) { // Write only moves that are needed
+		if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, 0x08020000 + i*4, dataPtr[i]) != HAL_OK) {
 			HAL_FLASH_Lock();
 			Error("FLASH Failure");
 			return;

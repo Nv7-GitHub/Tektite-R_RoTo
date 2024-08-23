@@ -103,7 +103,7 @@ int main(void)
   ReadData();
   EncoderReset();
 
-  uint32_t lastPrint = HAL_GetTick();
+  //uint32_t lastPrint = HAL_GetTick();
 
   /* USER CODE END 2 */
 
@@ -114,9 +114,9 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	//ConnectionUpdate();
-	//LEDWrite(64, 64, 64);
-	  if (GOPressed()) {
+	ConnectionUpdate();
+	LEDWrite(64, 64, 64);
+	  /*if (GOPressed()) {
 		  M1Write(1.0);
 		  M2Write(1.0);
 	  } else if (STOPPressed()) {
@@ -128,7 +128,7 @@ int main(void)
 		  lastPrint = HAL_GetTick();
 		  printf("m1t:%d,m2t:%d,m1v:%f,m2v:%f,cnt:%d\n", M1Ticks, M2Ticks, M1Vel, M2Vel, htim3.Instance->CNT);
 	  }
-	  HAL_Delay(5);
+	  HAL_Delay(5);*/
   }
   /* USER CODE END 3 */
 }
