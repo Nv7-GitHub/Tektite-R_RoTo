@@ -16,4 +16,8 @@
 void SelfTest();
 void RunMoves();
 
+bool Move(float ticks, float tw_off);
+bool Turn(float deg);
+void End(float ticks, float tw_off, float time);
+
 #endif /* INC_CONTROL_H_ */

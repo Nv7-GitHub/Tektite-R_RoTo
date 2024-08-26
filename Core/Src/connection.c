@@ -13,12 +13,9 @@ Config configCommand;
 bool configCommandAvailable = false;
 Command command;
 bool commandAvailable = false;
+Data data;
 
 void ConnectionUpdate() {
-	if (GOPressed()) {
-		RunMoves();
-	}
-
 	if (configCommandAvailable) {
 		commandAvailable = false;
 		configCommandAvailable = false;
@@ -37,6 +34,7 @@ void ConnectionUpdate() {
 			break;
 
 		case TRANSMIT:
+			LEDWrite(0, 0, 64);
 			uint8_t buf = 1;
 			int cnt = command.ticks;
 			command.type = TURN_MOVE;
@@ -47,15 +45,16 @@ void ConnectionUpdate() {
 				while (!commandAvailable) {
 					HAL_Delay(1);
 				}
-				data.ticks[data.moveCount] = command.ticks;
-				data.turn[data.moveCount] = command.turn;
-				data.tw_off[data.moveCount] = command.tw_off;
+				data.moves[data.moveCount].ticks = command.ticks;
+				data.moves[data.moveCount].turn = command.turn;
+				data.moves[data.moveCount].tw_off = command.tw_off;
 				data.moveCount++;
 				commandAvailable = false;
 				CDC_Transmit_FS(&buf, sizeof(buf));
 			}
 			WriteData();
 			commandAvailable = false;
+			LEDWrite(0, 0, 0);
 			break;
 
 		case READ_CONFIG:
@@ -69,7 +68,6 @@ void ConnectionUpdate() {
 }
 
 
-Data data;
 void WriteData() {
 	static FLASH_EraseInitTypeDef EraseInitStruct;
 	EraseInitStruct.TypeErase = FLASH_TYPEERASE_SECTORS;

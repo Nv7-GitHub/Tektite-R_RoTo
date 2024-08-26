@@ -22,14 +22,21 @@ bool HandleStop() {
 	return true;
 }
 
+float calcVel() {
+	return (data.config.velocity + data.config.velocity_twoff*data.track_width_ticks)/data.config.vtime;
+}
+
 float VelMult = 1; // Changed by velocity P controller
 bool Move(float ticks, float tw_off) {
-	int dist = (int)(ticks - tw_off*data.track_width_ticks);
-	M1Ticks = 0;
-	M2Ticks = 0;
+	EncoderReset();
+
+	int dist = (int)(ticks + tw_off*data.track_width_ticks);
 	uint32_t start = HAL_GetTick();
 
-	float vel = (data.config.velocity + data.config.velocity_twoff*data.track_width_ticks)/data.config.time;
+	float vel = calcVel();
+	if (ticks < 0) {
+		vel *= -1.0f;
+	}
 
 	// Fast part
 	while (abs(dist - M1Ticks) + abs(dist - M2Ticks) > 50) {
@@ -38,15 +45,31 @@ bool Move(float ticks, float tw_off) {
 		// Calculate power
 		int pos = (M1Ticks + M2Ticks)/2;
 		float power = data.config.kp_straight*(float)(dist - pos);
+		if (ticks < 0) {
+			power *= -1.0f;
+		}
+		bool decel = true; // If the kp_straight is making it slow down
+		if (power > 1.0f) {
+			power = 1.0f;
+			decel = false;
+		} else if (power < -1.0f) {
+			power = -1.0f;
+			decel = false;
+		}
 		power *= vel/data.max_vel;
 		power *= VelMult;
 
 		// Clamp velocity for trapezoidal profile or velocity PID
-		if (HAL_GetTick() - start > (int)(data.config.straight_accel_time*1000.0f)) {
+		if (HAL_GetTick() - start < (int)(data.config.straight_accel_time*1000.0f)) {
 			power *= ((float)(HAL_GetTick() - start)/1000.0f)/data.config.straight_accel_time;
-		} else {
+		} else if (!decel) {
 			// Update velocity PID
-			VelMult += (((M1Vel + M2Vel)/2.0f) - vel)*data.config.kp_velocity;
+			float off = (vel - ((M1Vel + M2Vel)/2.0f))*data.config.kp_velocity;
+			if (ticks > 0) {
+				VelMult += off;
+			} else {
+				VelMult -= off;
+			}
 		}
 
 		// Add w & friction
@@ -70,6 +93,8 @@ bool Move(float ticks, float tw_off) {
 
 	// Slow part (get accurate position)
 	while (abs(dist - M1Ticks) + abs(dist - M2Ticks) > 5) {
+		EncoderUpdate();
+
 		// Get power
 		int pos = (M1Ticks + M2Ticks)/2;
 		float power = data.config.kp_straight*(float)(dist - pos);
@@ -97,19 +122,23 @@ bool Move(float ticks, float tw_off) {
 	return true;
 }
 
+// Despite the terrible naming, the angle is supposed to be in radians
 bool Turn(float deg) {
-	M1Ticks = 0;
-	M2Ticks = 0;
+	EncoderReset();
+
+	float ang = 0.0;
+
 	bool m1 = deg > 0;
 	if (deg < 0) {
 		deg *= -1.0f;
 	}
-	int ticks = deg*data.track_width_ticks;
+	int ticks = (int)(deg*data.track_width_ticks);
 
 	int dist = 1000;
+	float vel = calcVel();
 
 	uint32_t start = HAL_GetTick();
-	while (abs(dist) > 5) {
+	while (abs(dist) > 2) {
 		EncoderUpdate();
 
 		// Figure out distances in ticks
@@ -125,13 +154,19 @@ bool Turn(float deg) {
 		// Calculate power for moving wheel
 		float power;
 		if (abs(dist) > 50) {
-			power = data.config.kp_turn*dist;
+			power = data.config.kp_turn*(float)dist;
 			if (HAL_GetTick() - start < data.config.turn_accel_time*1000.0f) {
 				power *= ((float)(HAL_GetTick() - start)/1000.0f)/data.config.turn_accel_time;
 			}
 		} else {
 			power = data.config.kp_straight*dist;
 		}
+		if (power > 1.0f) {
+			power = 1.0f;
+		} else if (power < -1.0f) {
+			power = -1.0f;
+		}
+		power *= vel/data.max_vel;
 		power *= VelMult;
 
 		// Calculate power for non-moving wheel
@@ -154,8 +189,24 @@ bool Turn(float deg) {
 			return false;
 		}
 
-		HAL_Delay(1); // 200Hz control loop
+		// 200Hz control loop w/ 10,000 hz angle measurement
+		uint32_t delayStart = HAL_GetTick();
+		uint32_t currT = GetMicros();
+		while (HAL_GetTick() - delayStart < 5) {
+			uint32_t newT = GetMicros();
+			ang += ((float)(newT - currT))/1000000.0f * GetGZ();
+			currT = newT;
+			while (GetMicros() - currT < 100);
+		}
 	}
+
+	// Update track_width
+	if (m1) {
+		data.track_width_ticks = M1Ticks/ang;
+	} else {
+		data.track_width_ticks = M2Ticks/ang;
+	}
+
 	M1Write(0.0);
 	M2Write(0.0);
 	return true;
@@ -163,11 +214,8 @@ bool Turn(float deg) {
 
 float SelfTest90() {
 	float ang = 0.0;
-	uint32_t prev = HAL_GetTick();
+	uint32_t prev = GetMicros();
 	while (fabs(ang) < M_PI_2) {
-		uint32_t time = HAL_GetTick();
-		ang += ((float)(time - prev))/1000.0f * GetGZ();
-		prev = time;
 		EncoderUpdate();
 
 
@@ -175,7 +223,14 @@ float SelfTest90() {
 			return -1;
 		}
 
-		HAL_Delay(5);
+		// 200Hz control loop w/ 10,000 hz angle measurement
+		uint32_t delayStart = HAL_GetTick();
+		prev = GetMicros();
+		while (HAL_GetTick() - delayStart < 5) {
+			uint32_t time = GetMicros();
+			ang += ((float)(time - prev))/1000000.0f * GetGZ();
+			prev = time;
+		}
 	}
 
 	M1Write(0.0);
@@ -183,9 +238,6 @@ float SelfTest90() {
 
 	uint32_t end = HAL_GetTick();
 	while (HAL_GetTick() - end < 100) {
-		uint32_t time = HAL_GetTick();
-		ang += ((float)(time - prev))/1000.0f * GetGZ();
-		prev = time;
 		EncoderUpdate();
 		if (STOPPressed()) {
 			LEDWrite(255, 0, 0);
@@ -194,7 +246,14 @@ float SelfTest90() {
 			}
 			return -1;
 		}
-		HAL_Delay(5);
+		// 200Hz control loop w/ 10,000 hz angle measurement
+		uint32_t delayStart = HAL_GetTick();
+		prev = GetMicros();
+		while (HAL_GetTick() - delayStart < 5) {
+			uint32_t time = GetMicros();
+			ang += ((float)(time - prev))/1000000.0f * GetGZ();
+			prev = time;
+		}
 	}
 	return fabs(ang);
 }
@@ -304,17 +363,23 @@ void SelfTest() {
 }
 
 void End(float ticks, float tw_off, float time) {
-	float dist = ticks + tw_off*data.track_width_ticks - data.config.dowel_off;
-	float targvel = ticks/time;
+	uint32_t time_start = HAL_GetTick();
+	float dist = ticks + tw_off*data.track_width_ticks;
 	M1Ticks = 0;
 	M2Ticks = 0;
 
-
-	while (M1Ticks < (int)dist) {
+	while (((dist - (float)M1Ticks) + (dist - (float)M2Ticks))*(dist/fabs(dist)) > 5) {
 		EncoderUpdate();
 
+		float targvel = dist/(time - (float)(HAL_GetTick() - time_start)/1000.0f);
+
 		float power = (targvel/data.max_vel)*VelMult;
-		VelMult += (((M1Vel + M2Vel)/2.0f) - targvel)*data.config.kp_velocity;
+		float off = (targvel - ((M1Vel + M2Vel)/2.0f))*data.config.kp_velocity;
+		if (dist > 0) {
+			VelMult += off;
+		} else {
+			VelMult -= off;
+		}
 		float w = (float)(M1Ticks - M2Ticks) * data.config.kp_straight;
 		M1Write(data.config.friction + power - w);
 		M2Write(data.config.friction + power + w);
@@ -328,7 +393,7 @@ void End(float ticks, float tw_off, float time) {
 	// Correct at the end
 	M1Ticks -= (int)dist;
 	M2Ticks -= (int)dist;
-	while (abs(M1Ticks - (int)dist) > 5) {
+	while (abs(M1Ticks) + abs(M2Ticks) > 5) {
 		EncoderUpdate();
 
 		float power1 = -data.config.kp_straight*M1Ticks;
@@ -347,25 +412,34 @@ void End(float ticks, float tw_off, float time) {
 		if (!HandleStop()) {
 			return;
 		}
+
 		HAL_Delay(5);
 	}
+
+	M1Write(0.0);
+	M2Write(0.0);
 
 	return;
 }
 
 void RunMoves() {
 	EncoderReset();
+	ReadData();
 	VelMult = 1.0f;
 
 	uint32_t start = HAL_GetTick();
-	for (int i = 0; i < data.moveCount-1; i++) {
-		if (abs(data.ticks[i]) > 1.0f) {
-			Move(data.ticks[i], data.tw_off[i]);
+	for (int i = 0; i < data.moveCount; i++) {
+		if (fabs(data.moves[i].turn) > 0.001f) {
+			if (!Turn(data.moves[i].turn)) {
+				return;
+			}
 		}
-		if (abs(data.turn[i]) > 0.001f) {
-			Turn(data.turn[i]);
+		if (abs(data.moves[i].ticks) > 1 && i != data.moveCount-1) {
+			if (!Move(data.moves[i].ticks, data.moves[i].tw_off)) {
+				return;
+			}
 		}
 	}
 	float currTime = (float)(HAL_GetTick() - start)/1000.0f;
-	End(data.ticks[data.moveCount-1], data.tw_off[data.moveCount-1], data.config.time - currTime);
+	End(data.moves[data.moveCount-1].ticks, data.moves[data.moveCount-1].tw_off, data.config.time - currTime);
 }

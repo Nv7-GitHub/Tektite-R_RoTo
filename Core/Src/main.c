@@ -28,6 +28,7 @@
 /* USER CODE BEGIN Includes */
 #include "peripheral.h"
 #include "connection.h"
+#include "control.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -116,6 +117,18 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	ConnectionUpdate();
 	LEDWrite(64, 64, 64);
+
+	if (GOPressed()) {
+		while (GOPressed()) {
+			LEDWrite(0, 255, 0);
+			EncoderReset();
+		}
+		RunMoves();
+	} else if (STOPPressed()) {
+		while (STOPPressed()) {
+			LEDWrite(255, 0, 0);
+		}
+	}
 	  /*if (GOPressed()) {
 		  M1Write(1.0);
 		  M2Write(1.0);

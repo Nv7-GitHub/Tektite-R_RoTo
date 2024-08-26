@@ -49,6 +49,13 @@ typedef struct {
 
 #pragma pack(1)
 typedef struct {
+	float turn;
+	int ticks;
+	float tw_off;
+} MoveData;
+
+#pragma pack(1)
+typedef struct {
 	int ready;
 
 	Config config;
@@ -56,9 +63,7 @@ typedef struct {
 	float max_vel;
 
 	int moveCount;
-	float turn[256];
-	int ticks[256];
-	float tw_off[256];
+	MoveData moves[256];
 } Data;
 extern bool commandAvailable;
 extern bool configCommandAvailable;
@@ -71,8 +76,5 @@ void ConnectionUpdate();
 extern Data data;
 void ReadData();
 void WriteData();
-
-
-
 
 #endif /* INC_CONNECTION_H_ */

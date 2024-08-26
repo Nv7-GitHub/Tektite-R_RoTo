@@ -35,7 +35,7 @@ void LEDInit() {
 float BattVoltage() {
 	HAL_ADC_Start(&hadc1);
 	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-	return ((float)HAL_ADC_GetValue(&hadc1))*0.00251984291f; // x/4096 * (100+47)/47 [voltage resistor] * 3.3 [vref]
+	return ((float)HAL_ADC_GetValue(&hadc1))*0.00337693234; // x/4096 * (150+47)/47 [voltage resistor] * 3.3 [vref]
 }
 
 void BMI088Init() {
@@ -104,7 +104,7 @@ bool STOPPressed() {
 // Encoders
 extern volatile uint32_t UptimeMillis;
 
-static inline uint32_t GetMicros()
+uint32_t GetMicros()
 {
     uint32_t ms;
     uint32_t st;
@@ -139,8 +139,8 @@ void EncoderReset() {
 	M2Ticks = 0;
 	M1Vel = 0;
 	M2Vel = 0;
-	m1prev = 0;
-	m2prev = 0;
+	m1prev = __HAL_TIM_GET_COUNTER(&htim3);
+	m2prev = __HAL_TIM_GET_COUNTER(&htim4);
 	prevEncoderUpdate = GetMicros();
 	battMult = 5.0f/BattVoltage();
 	// Battery <5V
@@ -182,8 +182,8 @@ void EncoderUpdate() {
 		diffT++;
 	}
 	float dt = ((float)diffT)/1000000.0f;
-	updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt, -1);
-	updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt, 1);
+	updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt, 1);
+	updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt, -1);
 	prevEncoderUpdate = currT;
 }
 

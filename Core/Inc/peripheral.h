@@ -38,5 +38,7 @@ extern int M2Ticks;
 extern float M1Vel;
 extern float M2Vel;
 
+uint32_t GetMicros();
+
 
 #endif /* INC_PERIPHERAL_H_ */
