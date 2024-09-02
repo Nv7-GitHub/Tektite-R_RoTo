@@ -105,6 +105,9 @@ int main(void)
   EncoderReset();
 
   //uint32_t lastPrint = HAL_GetTick();
+  //bool moving = false;
+
+  float v = BattVoltage();
 
   /* USER CODE END 2 */
 
@@ -116,7 +119,11 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	ConnectionUpdate();
-	LEDWrite(64, 64, 64);
+	if (v > 5.0) {
+		LEDWrite(64, 64, 64);
+	} else {
+		LEDWrite(64, 0, 0);
+	}
 
 	if (GOPressed()) {
 		while (GOPressed()) {
@@ -130,11 +137,21 @@ int main(void)
 		}
 	}
 	  /*if (GOPressed()) {
-		  M1Write(1.0);
-		  M2Write(1.0);
+		  if (moving) {
+		  	  M1Write(-0.35);
+		  	  M2Write(-0.35);
+		  } else {
+			  while (GOPressed()) {
+				  LEDWrite(0, 255, 0);
+			  }
+			  M1Write(0.35);
+			  M2Write(0.35);
+			  moving = true;
+		  }
 	  } else if (STOPPressed()) {
 		  M1Write(0.0);
 		  M2Write(0.0);
+		  moving = false;
 	  }
 	  EncoderUpdate();
 	  if (HAL_GetTick() - lastPrint > 50) {

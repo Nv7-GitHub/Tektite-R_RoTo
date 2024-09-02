@@ -19,6 +19,7 @@
 #include <math.h>
 
 void Error(char* err);
+float BattVoltage();
 
 void LEDWrite(int r, int b, int g);
 void PeripheralInit();

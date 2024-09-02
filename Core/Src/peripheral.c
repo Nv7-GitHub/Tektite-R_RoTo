@@ -146,8 +146,10 @@ void EncoderReset() {
 	// Battery <5V
 	if (battMult > 1.0f) {
 		battMult = 1.0f;
+		LEDWrite(255, 0, 0);
 	} else if (battMult < -1.0f) {
 		battMult = -1.0f;
+		LEDWrite(255, 0, 0);
 	}
 }
 
@@ -182,8 +184,8 @@ void EncoderUpdate() {
 		diffT++;
 	}
 	float dt = ((float)diffT)/1000000.0f;
-	updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt, 1);
-	updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt, -1);
+	updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt, -1);
+	updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt, 1);
 	prevEncoderUpdate = currT;
 }
 
