@@ -7,6 +7,7 @@
 
 
 #include "peripheral.h"
+#include "connection.h"
 
 
 BMI088 imu;
@@ -66,13 +67,23 @@ void M1Write(float pow) {
 	} else if (pow < -1.0f) {
 		pow = -1.0f;
 	}
-	if (pow < 0) {
-		HAL_GPIO_WritePin(APHASE_GPIO_Port, APHASE_Pin, GPIO_PIN_SET);
-		pow *= -1.0f;
+	if (data.config.reverse) {
+		if (pow < 0) {
+			HAL_GPIO_WritePin(BPHASE_GPIO_Port, BPHASE_Pin, GPIO_PIN_SET);
+			pow *= -1.0f;
+		} else {
+			HAL_GPIO_WritePin(BPHASE_GPIO_Port, BPHASE_Pin, GPIO_PIN_RESET);
+		}
+		htim2.Instance->CCR3 = battMult*pow*1000.0f;
 	} else {
-		HAL_GPIO_WritePin(APHASE_GPIO_Port, APHASE_Pin, GPIO_PIN_RESET);
+		if (pow < 0) {
+			HAL_GPIO_WritePin(APHASE_GPIO_Port, APHASE_Pin, GPIO_PIN_SET);
+			pow *= -1.0f;
+		} else {
+			HAL_GPIO_WritePin(APHASE_GPIO_Port, APHASE_Pin, GPIO_PIN_RESET);
+		}
+		htim2.Instance->CCR2 = battMult*pow*1000.0f;
 	}
-	htim2.Instance->CCR2 = battMult*pow*1000.0f;
 }
 
 // Power out, -1 to 1
@@ -82,13 +93,23 @@ void M2Write(float pow) {
 	} else if (pow < -1.0f) {
 		pow = -1.0f;
 	}
-	if (pow < 0) {
-		HAL_GPIO_WritePin(BPHASE_GPIO_Port, BPHASE_Pin, GPIO_PIN_RESET);
-		pow *= -1.0f;
+	if (data.config.reverse) {
+		if (pow < 0) {
+			HAL_GPIO_WritePin(APHASE_GPIO_Port, APHASE_Pin, GPIO_PIN_RESET);
+			pow *= -1.0f;
+		} else {
+			HAL_GPIO_WritePin(APHASE_GPIO_Port, APHASE_Pin, GPIO_PIN_SET);
+		}
+		htim2.Instance->CCR2 = battMult*pow*1000.0f;
 	} else {
-		HAL_GPIO_WritePin(BPHASE_GPIO_Port, BPHASE_Pin, GPIO_PIN_SET);
+		if (pow < 0) {
+			HAL_GPIO_WritePin(BPHASE_GPIO_Port, BPHASE_Pin, GPIO_PIN_RESET);
+			pow *= -1.0f;
+		} else {
+			HAL_GPIO_WritePin(BPHASE_GPIO_Port, BPHASE_Pin, GPIO_PIN_SET);
+		}
+		htim2.Instance->CCR3 = battMult*pow*1000.0f;
 	}
-	htim2.Instance->CCR3 = battMult*pow*1000.0f;
 }
 
 // Buttons
@@ -139,8 +160,13 @@ void EncoderReset() {
 	M2Ticks = 0;
 	M1Vel = 0;
 	M2Vel = 0;
-	m1prev = __HAL_TIM_GET_COUNTER(&htim3);
-	m2prev = __HAL_TIM_GET_COUNTER(&htim4);
+	if (data.config.reverse) {
+		m1prev = __HAL_TIM_GET_COUNTER(&htim4);
+		m2prev = __HAL_TIM_GET_COUNTER(&htim3);
+	} else {
+		m1prev = __HAL_TIM_GET_COUNTER(&htim3);
+		m2prev = __HAL_TIM_GET_COUNTER(&htim4);
+	}
 	prevEncoderUpdate = GetMicros();
 	battMult = 5.0f/BattVoltage();
 	// Battery <5V
@@ -184,8 +210,13 @@ void EncoderUpdate() {
 		diffT++;
 	}
 	float dt = ((float)diffT)/1000000.0f;
-	updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt, -1);
-	updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt, 1);
+	if (data.config.reverse) {
+		updateEncoder(&htim4, &M1Ticks, &M1Vel, &m1prev, dt, -1);
+		updateEncoder(&htim3, &M2Ticks, &M2Vel, &m2prev, dt, 1);
+	} else {
+		updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt, -1);
+		updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt, 1);
+	}
 	prevEncoderUpdate = currT;
 }
 

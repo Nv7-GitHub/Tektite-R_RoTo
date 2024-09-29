@@ -44,10 +44,7 @@ bool Move(float ticks, float tw_off) {
 
 		// Calculate power
 		int pos = (M1Ticks + M2Ticks)/2;
-		float power = data.config.kp_straight*(float)(dist - pos);
-		if (ticks < 0) {
-			power *= -1.0f;
-		}
+		float power = data.config.kp_straight*(float)(dist - pos)/vel;
 		bool decel = true; // If the kp_straight is making it slow down
 		if (power > 1.0f) {
 			power = 1.0f;
@@ -73,7 +70,7 @@ bool Move(float ticks, float tw_off) {
 		}
 
 		// Add w & friction
-		float w = (float)(M1Ticks - M2Ticks) * data.config.kp_straight;
+		float w = (float)(M1Ticks - M2Ticks) * data.config.kp_straight/1000.0f;
 		float frictionMult = 1;
 		if (power < 0) {
 			frictionMult = -1;
@@ -82,7 +79,7 @@ bool Move(float ticks, float tw_off) {
 		// Write motors
 		M1Write(data.config.friction*frictionMult + power - w);
 		M2Write(data.config.friction*frictionMult + power + w);
-		//printf("pow:%f, targvel:%f, m1v:%f, dist:%d, mv:%f, velmult:%f\n", data.config.friction + power, vel, M1Vel, dist - M1Ticks, data.max_vel, VelMult);
+		printf("pow:%f, targvel:%f, m1v:%f, dist:%d, mv:%f, velmult:%f\n", data.config.friction + power, vel, M1Vel, dist - M1Ticks, data.max_vel, VelMult);
 
 
 		if (!HandleStop()) {
@@ -98,10 +95,10 @@ bool Move(float ticks, float tw_off) {
 
 		// Get power
 		int pos = (M1Ticks + M2Ticks)/2;
-		float power = data.config.kp_straight*(float)(dist - pos);
+		float power = data.config.kp_straight*(float)(dist - pos)/fabs(vel);
 
 		// Add w & friction
-		float w = (float)(M1Ticks - M2Ticks) * data.config.kp_straight;
+		float w = (float)(M1Ticks - M2Ticks) * data.config.kp_straight/1000.0f;
 		float frictionMult = 1;
 		if (power < 0) {
 			frictionMult = -1;
@@ -140,28 +137,30 @@ bool Turn(float deg) {
 
 	uint32_t start = HAL_GetTick();
 	uint32_t currT = GetMicros();
-	while (abs(dist) > 2 || abs(M1Vel) + abs(M2Vel) > 0) {
+	while (abs(dist) > 5 || abs(M1Vel) + abs(M2Vel) > 0) {
 		EncoderUpdate();
 
 		// Figure out distances in ticks
 		int zeroVal = 0;
 		if (m1) {
-			dist = ticks - M1Ticks;
+			//dist = ticks - M1Ticks;
+			dist = ticks - ((int)(ang*data.track_width_ticks)*2 + M1Ticks)/3;
 			zeroVal = M2Ticks;
 		} else {
-			dist = ticks - M2Ticks;
+			//dist = ticks - M2Ticks;
+			dist = ticks + ((int)(ang*data.track_width_ticks)*2 - M2Ticks)/3;
 			zeroVal = M1Ticks;
 		}
 
 		// Calculate power for moving wheel
 		float power;
 		if (abs(dist) > 50) {
-			power = data.config.kp_turn*(float)dist;
+			power = data.config.kp_turn*(float)dist/fabs(vel);
 			if (HAL_GetTick() - start < data.config.turn_accel_time*1000.0f) {
 				power *= ((float)(HAL_GetTick() - start)/1000.0f)/data.config.turn_accel_time;
 			}
 		} else {
-			power = data.config.kp_straight*dist;
+			power = data.config.kp_straight*dist/fabs(vel);
 		}
 		if (power > 1.0f) {
 			power = 1.0f;
@@ -182,11 +181,11 @@ bool Turn(float deg) {
 		if (m1) {
 			M1Write(data.config.friction*frictionMult + power);
 			M2Write(zeroPower);
-			//printf("pow:%f, m1v:%f, dist:%f\n", data.config.friction*frictionMult + power, M1Vel, data.track_width_ticks);
+			printf("pow:%f, m1v:%f, ticks:%d, m1t:%d, dist:%d\n", data.config.friction*frictionMult + power, M1Vel, ticks, M1Ticks, dist);
 		} else {
 			M1Write(zeroPower);
 			M2Write(data.config.friction*frictionMult + power);
-			//printf("pow:%f, m2v:%f, dist:%f\n", data.config.friction*frictionMult + power, M2Vel, data.track_width_ticks);
+			printf("pow:%f, m2v:%f, ticks:%d, m2t:%d, dist:%d\n", data.config.friction*frictionMult + power, M2Vel, ticks, M2Ticks, dist);
 		}
 
 		if (!HandleStop()) {
@@ -215,14 +214,6 @@ bool Turn(float deg) {
 			}
 		}
 	}*/
-
-	// Update track_width
-	// TODO: Figure out why this is making it less accurate
-	if (m1) {
-		//data.track_width_ticks = M1Ticks/ang;
-	} else {
-		//data.track_width_ticks = M2Ticks/ang*-1.0f;
-	}
 
 	M1Write(0.0);
 	M2Write(0.0);
@@ -399,7 +390,7 @@ void End(float ticks, float tw_off, float time) {
 		} else {
 			VelMult -= off;
 		}
-		float w = (float)(M1Ticks - M2Ticks) * data.config.kp_straight;
+		float w = (float)(M1Ticks - M2Ticks) * data.config.kp_straight/1000.0f;
 		M1Write(data.config.friction + power - w);
 		M2Write(data.config.friction + power + w);
 
@@ -419,12 +410,12 @@ void End(float ticks, float tw_off, float time) {
 	while (abs(M1Ticks) + abs(M2Ticks) > 5) {
 		EncoderUpdate();
 
-		float power1 = -data.config.kp_straight*M1Ticks;
+		float power1 = -data.config.kp_straight*M1Ticks/1000.0f;
 		float mult1 = 1;
 		if (power1 < 0) {
 			mult1 = -1;
 		}
-		float power2 = -data.config.kp_straight*M2Ticks;
+		float power2 = -data.config.kp_straight*M2Ticks/1000.0f;
 		float mult2 = 1;
 		if (power2 < 0) {
 			mult2 = -1;

@@ -35,6 +35,7 @@ typedef struct {
 	float kp_straight;
 	float kp_velocity;
 	float dowel_off;
+	int reverse; // 0 = false, 1 = true
 
 	float turn_accel_time;
 	float straight_accel_time;
