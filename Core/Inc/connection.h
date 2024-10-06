@@ -30,7 +30,7 @@ typedef struct {
 
 #pragma pack(1)
 typedef struct {
-	float kp_turn;
+	float kp_move;
 	float kp_hold;
 	float kp_straight;
 	float kp_velocity;

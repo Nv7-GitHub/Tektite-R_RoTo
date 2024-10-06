@@ -38,13 +38,17 @@ bool Move(float ticks, float tw_off) {
 		vel *= -1.0f;
 	}
 
+	// IMU data
+	uint32_t currT = GetMicros();
+	float ang = 0.0;
+
 	// Fast part
 	while (abs(dist - M1Ticks) + abs(dist - M2Ticks) > 50) {
 		EncoderUpdate();
 
 		// Calculate power
 		int pos = (M1Ticks + M2Ticks)/2;
-		float power = data.config.kp_straight*(float)(dist - pos)/vel;
+		float power = data.config.kp_move*(float)(dist - pos)/vel;
 		bool decel = true; // If the kp_straight is making it slow down
 		if (power > 1.0f) {
 			power = 1.0f;
@@ -70,7 +74,8 @@ bool Move(float ticks, float tw_off) {
 		}
 
 		// Add w & friction
-		float w = (float)(M1Ticks - M2Ticks) * data.config.kp_straight/1000.0f;
+		// Originally ((float)(M1Ticks - M2Ticks)*0.33 + (ang*data.track_width_ticks)*0.66) was just (float)(M1Ticks - M2Ticks)
+		float w = ((float)(M1Ticks - M2Ticks)*0.33 + (ang*data.track_width_ticks)*0.66) * data.config.kp_straight/1000.0f;
 		float frictionMult = 1;
 		if (power < 0) {
 			frictionMult = -1;
@@ -79,23 +84,31 @@ bool Move(float ticks, float tw_off) {
 		// Write motors
 		M1Write(data.config.friction*frictionMult + power - w);
 		M2Write(data.config.friction*frictionMult + power + w);
-		printf("pow:%f, targvel:%f, m1v:%f, dist:%d, mv:%f, velmult:%f\n", data.config.friction + power, vel, M1Vel, dist - M1Ticks, data.max_vel, VelMult);
+		printf("pow:%f, targvel:%f, m1v:%f, dist:%d, mv:%f, velmult:%f, w:%f\n", data.config.friction + power, vel, M1Vel, dist - M1Ticks, data.max_vel, VelMult, w);
 
 
 		if (!HandleStop()) {
 			return false;
 		}
 
-		HAL_Delay(5); // 200Hz control loop
+		// 200Hz control loop w/ 10,000 hz angle measurement
+		uint32_t delayStart = HAL_GetTick();
+		while (HAL_GetTick() - delayStart < 5) {
+			uint32_t newT = GetMicros();
+			ang += ((float)(newT - currT))/1000000.0f * GetGZ();
+			currT = newT;
+			while (GetMicros() - currT < 100);
+		}
 	}
 
 	// Slow part (get accurate position)
+	uint32_t startSlow = HAL_GetTick();
 	while (abs(dist - M1Ticks) + abs(dist - M2Ticks) > 5 || abs(M1Vel) + abs(M2Vel) > 0) {
 		EncoderUpdate();
 
 		// Get power
 		int pos = (M1Ticks + M2Ticks)/2;
-		float power = data.config.kp_straight*(float)(dist - pos)/fabs(vel);
+		float power = data.config.kp_move*(float)(dist - pos)/fabs(vel);
 
 		// Add w & friction
 		float w = (float)(M1Ticks - M2Ticks) * data.config.kp_straight/1000.0f;
@@ -108,12 +121,28 @@ bool Move(float ticks, float tw_off) {
 		M1Write(data.config.friction*frictionMult + power - w);
 		M2Write(data.config.friction*frictionMult + power + w);
 
+		// Check if too slow
+		if (HAL_GetTick() - startSlow > 500) {
+			M1Write(0.0);
+			M2Write(0.0);
+			LEDWrite(0, 0, 255);
+			HAL_Delay(100);
+			return true;
+		}
+
 
 		if (!HandleStop()) {
 			return false;
 		}
 
-		HAL_Delay(5); // 200Hz control loop
+		// 200Hz control loop w/ 10,000 hz angle measurement
+		uint32_t delayStart = HAL_GetTick();
+		while (HAL_GetTick() - delayStart < 5) {
+			uint32_t newT = GetMicros();
+			ang += ((float)(newT - currT))/1000000.0f * GetGZ();
+			currT = newT;
+			while (GetMicros() - currT < 100);
+		}
 	}
 	M1Write(0.0);
 	M2Write(0.0);
@@ -155,7 +184,7 @@ bool Turn(float deg) {
 		// Calculate power for moving wheel
 		float power;
 		if (abs(dist) > 50) {
-			power = data.config.kp_turn*(float)dist/fabs(vel);
+			power = data.config.kp_move*(float)dist/fabs(vel);
 			if (HAL_GetTick() - start < data.config.turn_accel_time*1000.0f) {
 				power *= ((float)(HAL_GetTick() - start)/1000.0f)/data.config.turn_accel_time;
 			}

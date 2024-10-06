@@ -198,6 +198,9 @@ void updateEncoder(TIM_HandleTypeDef *htim, int* ticks, float* vel, uint32_t* pr
 	}
 
 	delta *= mult;
+	if (abs(delta) > 100) { // Encoder error
+		return;
+	}
 	*ticks += delta;
 	*prev = temp;
 	*vel = ((float)delta)/dt;
@@ -211,8 +214,8 @@ void EncoderUpdate() {
 	}
 	float dt = ((float)diffT)/1000000.0f;
 	if (data.config.reverse) {
-		updateEncoder(&htim4, &M1Ticks, &M1Vel, &m1prev, dt, -1);
-		updateEncoder(&htim3, &M2Ticks, &M2Vel, &m2prev, dt, 1);
+		updateEncoder(&htim4, &M1Ticks, &M1Vel, &m1prev, dt, 1);
+		updateEncoder(&htim3, &M2Ticks, &M2Vel, &m2prev, dt, -1);
 	} else {
 		updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt, -1);
 		updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt, 1);
