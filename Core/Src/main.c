@@ -104,8 +104,10 @@ int main(void)
   ReadData();
   EncoderReset();
 
-  //uint32_t lastPrint = HAL_GetTick();
-  //bool moving = false;
+  /*uint32_t lastPrint = HAL_GetTick();
+  bool moving = false;
+  uint32_t currT = GetMicros();
+  float ang = 0.0;*/
 
   float v = BattVoltage();
 
@@ -138,14 +140,14 @@ int main(void)
 	}
 	  /*if (GOPressed()) {
 		  if (moving) {
-		  	  M1Write(-0.35);
-		  	  M2Write(-0.35);
+		  	  M1Write(-0.15);
+		  	  M2Write(-0.15);
 		  } else {
 			  while (GOPressed()) {
 				  LEDWrite(0, 255, 0);
 			  }
-			  M1Write(0.35);
-			  M2Write(0.35);
+			  M1Write(0.15);
+			  M2Write(0.15);
 			  moving = true;
 		  }
 	  } else if (STOPPressed()) {
@@ -156,9 +158,17 @@ int main(void)
 	  EncoderUpdate();
 	  if (HAL_GetTick() - lastPrint > 50) {
 		  lastPrint = HAL_GetTick();
-		  printf("m1t:%d,m2t:%d,m1v:%f,m2v:%f,cnt:%d\n", M1Ticks, M2Ticks, M1Vel, M2Vel, htim3.Instance->CNT);
+		  printf("m1t:%d,m2t:%d,m1v:%f,m2v:%f,ang:%f\n", M1Ticks, M2Ticks, M1Vel, M2Vel, ang*57.32);
 	  }
-	  HAL_Delay(5);*/
+
+	  // 200Hz control loop w/ 10,000 hz angle measurement
+	  uint32_t delayStart = HAL_GetTick();
+	  while (HAL_GetTick() - delayStart < 5) {
+		  uint32_t newT = GetMicros();
+		  ang += ((float)(newT - currT))/1000000.0f * GetGZ();
+		  currT = newT;
+		  while (GetMicros() - currT < 100);
+	  }*/
   }
   /* USER CODE END 3 */
 }

@@ -35,6 +35,8 @@ typedef struct {
 	float kp_straight;
 	float kp_velocity;
 	float dowel_off;
+	float imu_weight;
+	int backlash;
 	int reverse; // 0 = false, 1 = true
 
 	float turn_accel_time;
@@ -62,6 +64,7 @@ typedef struct {
 	Config config;
 	float track_width_ticks;
 	float max_vel;
+	float imu_bias;
 
 	int moveCount;
 	MoveData moves[256];

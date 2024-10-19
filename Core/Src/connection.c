@@ -8,6 +8,7 @@
 
 #include "connection.h"
 #include "control.h"
+#include "selftest.h"
 
 Config configCommand;
 bool configCommandAvailable = false;
@@ -17,12 +18,14 @@ Data data;
 
 void ConnectionUpdate() {
 	if (configCommandAvailable) {
+		LEDWrite(32, 64, 0);
 		commandAvailable = false;
 		configCommandAvailable = false;
 		data.config = configCommand;
 		WriteData();
 		uint8_t buf = 1;
 		CDC_Transmit_FS(&buf, sizeof(buf));
+		LEDWrite(0, 0, 0);
 		return;
 	}
 

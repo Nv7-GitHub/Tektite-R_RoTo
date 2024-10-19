@@ -48,7 +48,7 @@ void BMI088Init() {
 
 float GetGZ() {
 	BMI088_ReadGyroscope(&imu);
-	return imu.gyr_rps[2];
+	return imu.gyr_rps[2] - data.imu_bias;
 }
 
 void MotorInit() {
@@ -60,8 +60,20 @@ void MotorInit() {
 
 float battMult = 0.0f;
 
+
+bool prevSignM1 = true;
 // Power out, -1 to 1
 void M1Write(float pow) {
+	bool newSign = pow > 0.0f;
+	if (newSign != prevSignM1) {
+		prevSignM1 = newSign;
+		if (newSign) {
+			M1Ticks -= data.config.backlash;
+		} else {
+			M1Ticks += data.config.backlash;
+		}
+	}
+
 	if (pow > 1.0f) {
 		pow = 1.0f;
 	} else if (pow < -1.0f) {
@@ -86,8 +98,19 @@ void M1Write(float pow) {
 	}
 }
 
+bool prevSignM2 = true;
 // Power out, -1 to 1
 void M2Write(float pow) {
+	bool newSign = pow > 0.0f;
+	if (newSign != prevSignM2) {
+		prevSignM2 = newSign;
+		if (newSign) {
+			M2Ticks -= data.config.backlash;
+		} else {
+			M2Ticks += data.config.backlash;
+		}
+	}
+
 	if (pow > 1.0f) {
 		pow = 1.0f;
 	} else if (pow < -1.0f) {
@@ -155,9 +178,27 @@ void EncoderInit() {
 	HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
 }
 
+int m1e = 0;
+int m2e = 0;
+
+void EncoderResetError(int M1, int M2) {
+	m1e = M1;
+	m2e = M2;
+}
+
+void EncoderErrorRemove(bool M1) {
+	if (M1) {
+		m1e = 0;
+	} else {
+		m2e = 0;
+	}
+}
+
 void EncoderReset() {
-	M1Ticks = 0;
-	M2Ticks = 0;
+	M1Ticks = m1e;
+	M2Ticks = m2e;
+	m1e = 0;
+	m2e = 0;
 	M1Vel = 0;
 	M2Vel = 0;
 	if (data.config.reverse) {

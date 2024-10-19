@@ -75,7 +75,7 @@ bool Move(float ticks, float tw_off) {
 
 		// Add w & friction
 		// Originally ((float)(M1Ticks - M2Ticks)*0.33 + (ang*data.track_width_ticks)*0.66) was just (float)(M1Ticks - M2Ticks)
-		float w = ((float)(M1Ticks - M2Ticks)*0.33 + (ang*data.track_width_ticks)*0.66) * data.config.kp_straight/1000.0f;
+		float w = ((float)(M1Ticks - M2Ticks)*(data.config.imu_weight/2.0f) + (ang*data.track_width_ticks)*(1.0f-data.config.imu_weight/2.0f)) * data.config.kp_straight/1000.0f;
 		float frictionMult = 1;
 		if (power < 0) {
 			frictionMult = -1;
@@ -84,7 +84,7 @@ bool Move(float ticks, float tw_off) {
 		// Write motors
 		M1Write(data.config.friction*frictionMult + power - w);
 		M2Write(data.config.friction*frictionMult + power + w);
-		printf("pow:%f, targvel:%f, m1v:%f, dist:%d, mv:%f, velmult:%f, w:%f\n", data.config.friction + power, vel, M1Vel, dist - M1Ticks, data.max_vel, VelMult, w);
+		printf("pow:%f, targvel:%f, m1v:%f, m2v:%f, dist:%d, mv:%f, velmult:%f, w:%f\n", data.config.friction + power, vel, M1Vel, M2Vel, dist - M1Ticks, data.max_vel, VelMult, w);
 
 
 		if (!HandleStop()) {
@@ -126,6 +126,7 @@ bool Move(float ticks, float tw_off) {
 			M1Write(0.0);
 			M2Write(0.0);
 			LEDWrite(0, 0, 255);
+			EncoderResetError(M1Ticks - dist, M2Ticks - dist);
 			HAL_Delay(100);
 			return true;
 		}
@@ -144,6 +145,8 @@ bool Move(float ticks, float tw_off) {
 			while (GetMicros() - currT < 100);
 		}
 	}
+
+	EncoderResetError(M1Ticks - dist, M2Ticks - dist);
 	M1Write(0.0);
 	M2Write(0.0);
 	return true;
@@ -151,14 +154,14 @@ bool Move(float ticks, float tw_off) {
 
 // Despite the terrible naming, the angle is supposed to be in radians
 bool Turn(float deg) {
-	EncoderReset();
-
 	float ang = 0.0;
 
 	bool m1 = deg > 0;
 	if (deg < 0) {
 		deg *= -1.0f;
 	}
+	EncoderErrorRemove(!m1);
+	EncoderReset();
 	int ticks = (int)(deg*data.track_width_ticks);
 
 	int dist = 1000;
@@ -166,6 +169,7 @@ bool Turn(float deg) {
 
 	uint32_t start = HAL_GetTick();
 	uint32_t currT = GetMicros();
+	uint32_t endStart = 0;
 	while (abs(dist) > 5 || abs(M1Vel) + abs(M2Vel) > 0) {
 		EncoderUpdate();
 
@@ -173,11 +177,11 @@ bool Turn(float deg) {
 		int zeroVal = 0;
 		if (m1) {
 			//dist = ticks - M1Ticks;
-			dist = ticks - ((int)(ang*data.track_width_ticks)*2 + M1Ticks)/3;
+			dist = ticks - ((int)(ang*data.track_width_ticks*data.config.imu_weight) + (int)(((float)M1Ticks)*(1.0f-data.config.imu_weight)));
 			zeroVal = M2Ticks;
 		} else {
 			//dist = ticks - M2Ticks;
-			dist = ticks + ((int)(ang*data.track_width_ticks)*2 - M2Ticks)/3;
+			dist = ticks + ((int)(ang*data.track_width_ticks*data.config.imu_weight) - (int)(((float)M2Ticks)*(1.0f-data.config.imu_weight)));
 			zeroVal = M1Ticks;
 		}
 
@@ -190,6 +194,22 @@ bool Turn(float deg) {
 			}
 		} else {
 			power = data.config.kp_straight*dist/fabs(vel);
+			if (endStart == 0) {
+				endStart = HAL_GetTick();
+			}
+			// Check if too slow
+			if (HAL_GetTick() - endStart > 500) {
+				M1Write(0.0);
+				M2Write(0.0);
+				LEDWrite(0, 0, 255);
+				if (m1) {
+					EncoderResetError(-dist, 0);
+				} else {
+					EncoderResetError(0, -dist);
+				}
+				HAL_Delay(100);
+				return true;
+			}
 		}
 		if (power > 1.0f) {
 			power = 1.0f;
@@ -231,175 +251,16 @@ bool Turn(float deg) {
 		}
 	}
 
-	/*if (fabs(fabs(ang) - deg) > 0.0872665) {
-		M1Write(0.0f);
-		M2Write(0.0f);
-		while (1) {
-			LEDWrite(255, 64, 0);
-			printf("m1:%d, m2:%d, ticks:%d, ang:%f, deg:%f\n", M1Ticks, M2Ticks, ticks, fabs(ang), deg);
-			HAL_Delay(50);
-			if (STOPPressed()) {
-				return false;
-			}
-		}
-	}*/
-
 	M1Write(0.0);
 	M2Write(0.0);
+	if (m1) {
+		EncoderResetError(-dist, 0);
+	} else {
+		EncoderResetError(0, -dist);
+	}
 	return true;
 }
 
-float SelfTest90() {
-	float ang = 0.0;
-	uint32_t prev = GetMicros();
-	while (fabs(ang) < M_PI_2) {
-		EncoderUpdate();
-
-
-		if (!HandleStop()) {
-			return -1;
-		}
-
-		// 200Hz control loop w/ 10,000 hz angle measurement
-		uint32_t delayStart = HAL_GetTick();
-		prev = GetMicros();
-		while (HAL_GetTick() - delayStart < 5) {
-			uint32_t time = GetMicros();
-			ang += ((float)(time - prev))/1000000.0f * GetGZ();
-			prev = time;
-		}
-	}
-
-	M1Write(0.0);
-	M2Write(0.0);
-
-	uint32_t end = HAL_GetTick();
-	while (HAL_GetTick() - end < 100) {
-		EncoderUpdate();
-		if (STOPPressed()) {
-			LEDWrite(255, 0, 0);
-			while (STOPPressed()) {
-				HAL_Delay(1);
-			}
-			return -1;
-		}
-		// 200Hz control loop w/ 10,000 hz angle measurement
-		uint32_t delayStart = HAL_GetTick();
-		prev = GetMicros();
-		while (HAL_GetTick() - delayStart < 5) {
-			uint32_t time = GetMicros();
-			ang += ((float)(time - prev))/1000000.0f * GetGZ();
-			prev = time;
-		}
-	}
-	return fabs(ang);
-}
-
-void SelfTest() {
-	// Loop
-	bool pressed = false;
-	bool stopPressed = false;
-	while (1) {
-		if (pressed && !GOPressed()) {
-			break;
-		}
-		if (stopPressed && !STOPPressed()) {
-			return;
-		}
-		if (GOPressed()) {
-			LEDWrite(0, 255, 0);
-			pressed = true;
-		} else if (STOPPressed()) {
-			LEDWrite(255, 0, 0);
-			stopPressed = true;
-		}
-
-		EncoderReset();
-		LEDWrite(0, 255, 255);
-	}
-
-	// Self-test the rotation
-	LEDWrite(0, 0, 0);
-
-	M1Write(0.25);
-	float ang = SelfTest90();
-	if (ang < 0) {
-		return;
-	}
-	M1Write(0.0);
-	float tw1 = fabs(M1Ticks/ang);
-
-	EncoderReset();
-
-	M2Write(0.25);
-	ang = SelfTest90();
-	if (ang < 0) {
-		return;
-	}
-	M2Write(0.0);
-	float tw2 = fabs(M2Ticks/ang);
-	data.track_width_ticks = (tw1 + tw2)/2;
-
-	// Max velocity testing
-	M1Write(0.5);
-	M2Write(0.5);
-	uint32_t start = HAL_GetTick();
-	while (HAL_GetTick() - start < 50) {
-		if (!HandleStop()) {
-			return;
-		}
-		HAL_Delay(5);
-	}
-
-	M1Write(1.0);
-	M2Write(1.0);
-	start = HAL_GetTick();
-	float maxVel = 0;
-	while (HAL_GetTick() - start < 3500) {
-		EncoderUpdate();
-		if (!HandleStop()) {
-			return;
-		}
-		if (M1Vel > maxVel) {
-			maxVel = M1Vel;
-		}
-		if (M2Vel > maxVel) {
-			maxVel = M2Vel;
-		}
-		if (M1Vel < 0.0f || M2Vel < 0.0f) {
-			Error("Motors backwards");
-		}
-		HAL_Delay(5);
-	}
-	M1Write(0.0);
-	M2Write(0.0);
-	data.max_vel = maxVel;
-	WriteData();
-
-	// Get ticks
-	LEDWrite(255, 0, 255);
-	pressed = false;
-	stopPressed = false;
-	while (1) {
-		if (pressed && !GOPressed()) {
-			break;
-		}
-		if (stopPressed && !STOPPressed()) {
-			return;
-		}
-		if (GOPressed()) {
-			LEDWrite(0, 255, 0);
-			pressed = true;
-		} else if (STOPPressed()) {
-			LEDWrite(255, 0, 0);
-			stopPressed = true;
-		}
-
-		EncoderReset();
-	}
-	LEDWrite(0, 0, 255);
-	Move(10000, 0);
-}
 
 void End(float ticks, float tw_off, float time) {
 	uint32_t time_start = HAL_GetTick();
@@ -410,7 +271,11 @@ void End(float ticks, float tw_off, float time) {
 	while (((dist - (float)M1Ticks) + (dist - (float)M2Ticks))*(dist/fabs(dist)) > 5) {
 		EncoderUpdate();
 
-		float targvel = (dist - (float)M1Ticks)/(time - (float)(HAL_GetTick() - time_start)/1000.0f);
+		float timeleft = time - (float)(HAL_GetTick() - time_start)/1000.0f;
+		float targvel = (dist - (float)M1Ticks)/timeleft;
+		if (targvel > data.max_vel || timeleft < 0) {
+			targvel = data.max_vel;
+		}
 
 		float power = (targvel/data.max_vel)*VelMult;
 		float off = (targvel - ((M1Vel + M2Vel)/2.0f))*data.config.kp_velocity;

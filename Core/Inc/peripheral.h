@@ -33,6 +33,8 @@ bool GOPressed();
 bool STOPPressed();
 
 void EncoderReset();
+void EncoderResetError(int M1, int M2);
+void EncoderErrorRemove(bool M1);
 void EncoderUpdate();
 
 extern int M1Ticks;
