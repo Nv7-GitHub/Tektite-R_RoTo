@@ -27,6 +27,7 @@ float calcVel() {
 }
 
 float VelMult = 1; // Changed by velocity P controller
+float ang = 0.0;
 bool Move(float ticks, float tw_off) {
 	EncoderReset();
 	//printf("MOVE: %f %f %f\n", ticks, data.track_width_ticks, data.max_vel);
@@ -40,10 +41,9 @@ bool Move(float ticks, float tw_off) {
 
 	// IMU data
 	uint32_t currT = GetMicros();
-	float ang = 0.0;
 
 	// Fast part
-	while (abs(dist - M1Ticks) + abs(dist - M2Ticks) > 50) {
+	while (abs(dist - M1Ticks) + abs(dist - M2Ticks) > 75) {
 		EncoderUpdate();
 
 		// Calculate power
@@ -57,8 +57,7 @@ bool Move(float ticks, float tw_off) {
 			power = -1.0f;
 			decel = false;
 		}
-		power *= vel/data.max_vel;
-		power *= VelMult;
+		power *= vel*VelMult; // Will be divided by max vel later
 
 		// Clamp velocity for trapezoidal profile or velocity PID
 		if (HAL_GetTick() - start < (int)(data.config.straight_accel_time*1000.0f)) {
@@ -75,16 +74,16 @@ bool Move(float ticks, float tw_off) {
 
 		// Add w & friction
 		// Originally ((float)(M1Ticks - M2Ticks)*0.33 + (ang*data.track_width_ticks)*0.66) was just (float)(M1Ticks - M2Ticks)
-		float w = ((float)(M1Ticks - M2Ticks)*(data.config.imu_weight/2.0f) + (ang*data.track_width_ticks)*(1.0f-data.config.imu_weight/2.0f)) * data.config.kp_straight/1000.0f;
+		float w = ((float)(M1Ticks - M2Ticks)*(1.0f-data.config.imu_weight) + (ang*data.track_width_ticks)*(data.config.imu_weight)) * data.config.kp_straight/1000.0f;
 		float frictionMult = 1;
 		if (power < 0) {
 			frictionMult = -1;
 		}
 
 		// Write motors
-		M1Write(data.config.friction*frictionMult + power - w);
-		M2Write(data.config.friction*frictionMult + power + w);
-		printf("pow:%f, targvel:%f, m1v:%f, m2v:%f, dist:%d, mv:%f, velmult:%f, w:%f\n", data.config.friction + power, vel, M1Vel, M2Vel, dist - M1Ticks, data.max_vel, VelMult, w);
+		M1Write(data.config.friction*frictionMult + power/data.max_vel_1 - w);
+		M2Write(data.config.friction*frictionMult + power/data.max_vel_2 + w);
+		printf("pow:%f, targvel:%f, m1v:%f, m2v:%f, dist1:%d, dist2:%d, mv:%f, velmult:%f, w:%f, friction:%f\n", data.config.friction*frictionMult + power*vel/data.max_vel_1 - w, vel, M1Vel, M2Vel, dist - M1Ticks, dist - M2Ticks, data.max_vel_1, VelMult, w, data.config.friction*frictionMult);
 
 
 		if (!HandleStop()) {
@@ -120,6 +119,7 @@ bool Move(float ticks, float tw_off) {
 		// Write motors
 		M1Write(data.config.friction*frictionMult + power - w);
 		M2Write(data.config.friction*frictionMult + power + w);
+		printf("pow:%f, targvel:%f, m1v:%f, m2v:%f, dist1:%d, dist2:%d, mv:%f, velmult:%f, w:%f, friction:%f\n", data.config.friction*frictionMult + power - w, vel, M1Vel, M2Vel, dist - M1Ticks, dist - M2Ticks, data.max_vel_1, VelMult, w, data.config.friction*frictionMult);
 
 		// Check if too slow
 		if (HAL_GetTick() - startSlow > 500) {
@@ -154,8 +154,6 @@ bool Move(float ticks, float tw_off) {
 
 // Despite the terrible naming, the angle is supposed to be in radians
 bool Turn(float deg) {
-	float ang = 0.0;
-
 	bool m1 = deg > 0;
 	if (deg < 0) {
 		deg *= -1.0f;
@@ -216,7 +214,6 @@ bool Turn(float deg) {
 		} else if (power < -1.0f) {
 			power = -1.0f;
 		}
-		power *= vel/data.max_vel;
 		power *= VelMult;
 
 		// Calculate power for non-moving wheel
@@ -228,13 +225,13 @@ bool Turn(float deg) {
 
 		// Write to motors
 		if (m1) {
-			M1Write(data.config.friction*frictionMult + power);
+			M1Write(data.config.friction*frictionMult + power*vel/data.max_vel_1);
 			M2Write(zeroPower);
-			printf("pow:%f, m1v:%f, ticks:%d, m1t:%d, dist:%d\n", data.config.friction*frictionMult + power, M1Vel, ticks, M1Ticks, dist);
+			//printf("pow:%f, m1v:%f, ticks:%d, m1t:%d, dist:%d\n", data.config.friction*frictionMult + power, M1Vel, ticks, M1Ticks, dist);
 		} else {
 			M1Write(zeroPower);
-			M2Write(data.config.friction*frictionMult + power);
-			printf("pow:%f, m2v:%f, ticks:%d, m2t:%d, dist:%d\n", data.config.friction*frictionMult + power, M2Vel, ticks, M2Ticks, dist);
+			M2Write(data.config.friction*frictionMult + power*vel/data.max_vel_2);
+			//printf("pow:%f, m2v:%f, ticks:%d, m2t:%d, dist:%d\n", data.config.friction*frictionMult + power, M2Vel, ticks, M2Ticks, dist);
 		}
 
 		if (!HandleStop()) {
@@ -258,6 +255,11 @@ bool Turn(float deg) {
 	} else {
 		EncoderResetError(0, -dist);
 	}
+	if (m1) {
+		ang -= deg;
+	} else {
+		ang += deg;
+	}
 	return true;
 }
 
@@ -267,26 +269,30 @@ void End(float ticks, float tw_off, float time) {
 	float dist = ticks + tw_off*data.track_width_ticks;
 	M1Ticks = 0;
 	M2Ticks = 0;
+	uint32_t currT = GetMicros();
 
-	while (((dist - (float)M1Ticks) + (dist - (float)M2Ticks))*(dist/fabs(dist)) > 5) {
+	float targvel = 0;
+	while (((dist - (float)M1Ticks) + (dist - (float)M2Ticks))*(dist/fabs(dist)) > 0) {
 		EncoderUpdate();
 
 		float timeleft = time - (float)(HAL_GetTick() - time_start)/1000.0f;
-		float targvel = (dist - (float)M1Ticks)/timeleft;
-		if (targvel > data.max_vel || timeleft < 0) {
-			targvel = data.max_vel;
+		if (fabs(timeleft) > 0.25) { // Inaccurate to calculate when its <0.25 because as it approaches 0 vel approaches infinity
+			targvel = (dist - (float)M1Ticks)/timeleft;
+		}
+		if (targvel > data.max_vel_1 || (timeleft < 0 && targvel < 0)) {
+			targvel = data.max_vel_1;
 		}
 
-		float power = (targvel/data.max_vel)*VelMult;
+		float power = VelMult;
 		float off = (targvel - ((M1Vel + M2Vel)/2.0f))*data.config.kp_velocity;
 		if (dist > 0) {
 			VelMult += off;
 		} else {
 			VelMult -= off;
 		}
-		float w = (float)(M1Ticks - M2Ticks) * data.config.kp_straight/1000.0f;
-		M1Write(data.config.friction + power - w);
-		M2Write(data.config.friction + power + w);
+		float w = ((float)(M1Ticks - M2Ticks)*(1.0f-data.config.imu_weight) + (ang*data.track_width_ticks)*(data.config.imu_weight)) * data.config.kp_straight/1000.0f;
+		M1Write(data.config.friction + power*(targvel/data.max_vel_1) - w);
+		M2Write(data.config.friction + power*(targvel/data.max_vel_2) + w);
 
 		//printf("time remaining:%f, targvel:%f, m1v:%f, velmult:%f, dist:%f, maxvel:%f\n", time - (float)(HAL_GetTick() - time_start)/1000.0f, targvel, M1Vel, VelMult, dist, data.max_vel);
 
@@ -295,21 +301,31 @@ void End(float ticks, float tw_off, float time) {
 		if (!HandleStop()) {
 			return;
 		}
-		HAL_Delay(5);
+		// 200Hz control loop w/ 10,000 hz angle measurement
+		uint32_t delayStart = HAL_GetTick();
+		while (HAL_GetTick() - delayStart < 5) {
+			uint32_t newT = GetMicros();
+			ang += ((float)(newT - currT))/1000000.0f * GetGZ();
+			currT = newT;
+			while (GetMicros() - currT < 100);
+		}
 	}
 
 	// Correct at the end
-	M1Ticks -= (int)dist;
+	/*M1Ticks -= (int)dist;
 	M2Ticks -= (int)dist;
+	M1Ticks -= ang*data.track_width_ticks*0.5*data.config.imu_weight;
+	M1Ticks += ang*data.track_width_ticks*0.5*data.config.imu_weight;
 	while (abs(M1Ticks) + abs(M2Ticks) > 5) {
+		printf("M1T:%d, M2T:%d\n", M1Ticks, M2Ticks);
 		EncoderUpdate();
 
-		float power1 = -data.config.kp_straight*M1Ticks/1000.0f;
+		float power1 = -data.config.kp_straight*M1Ticks/2000.0f;
 		float mult1 = 1;
 		if (power1 < 0) {
 			mult1 = -1;
 		}
-		float power2 = -data.config.kp_straight*M2Ticks/1000.0f;
+		float power2 = -data.config.kp_straight*M2Ticks/2000.0f;
 		float mult2 = 1;
 		if (power2 < 0) {
 			mult2 = -1;
@@ -321,8 +337,15 @@ void End(float ticks, float tw_off, float time) {
 			return;
 		}
 
-		HAL_Delay(5);
-	}
+		// 200Hz control loop w/ 10,000 hz angle measurement
+		uint32_t delayStart = HAL_GetTick();
+		while (HAL_GetTick() - delayStart < 5) {
+			uint32_t newT = GetMicros();
+			ang += ((float)(newT - currT))/1000000.0f * GetGZ();
+			currT = newT;
+			while (GetMicros() - currT < 100);
+		}		HAL_Delay(5);
+	}*/
 
 	M1Write(0.0);
 	M2Write(0.0);
@@ -333,6 +356,7 @@ void End(float ticks, float tw_off, float time) {
 void RunMoves() {
 	EncoderReset();
 	VelMult = 1.0f;
+	ang = 0.0;
 
 	uint32_t start = HAL_GetTick();
 	for (int i = 0; i < data.moveCount; i++) {

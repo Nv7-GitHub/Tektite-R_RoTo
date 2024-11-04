@@ -63,7 +63,8 @@ typedef struct {
 
 	Config config;
 	float track_width_ticks;
-	float max_vel;
+	float max_vel_1;
+	float max_vel_2;
 	float imu_bias;
 
 	int moveCount;

@@ -4,7 +4,7 @@
 void CalibrateIMU() {
 	float total = 0;
 	int samples = 0;
-	bool ledon = false;
+	bool ledon = true;
 	data.imu_bias = 0;
 	for (int i = 0; i < 20; i++) {
 		// Flashing LED
@@ -21,7 +21,7 @@ void CalibrateIMU() {
 			float val = GetGZ();
 			total += val;
 			samples++;
-			HAL_Delay(1);
+			HAL_Delay(3);
 		}
 	}
 	data.imu_bias = total/((float)samples);
@@ -96,6 +96,9 @@ void SelfTest() {
 		LEDWrite(0, 255, 255);
 	}
 
+	LEDWrite(0, 0, 0);
+	HAL_Delay(500);
+
 	// Calibrate imu
 	CalibrateIMU();
 
@@ -135,17 +138,18 @@ void SelfTest() {
 	M1Write(1.0);
 	M2Write(1.0);
 	start = HAL_GetTick();
-	float maxVel = 0;
+	float maxVel1 = 0;
+	float maxVel2 = 0;
 	while (HAL_GetTick() - start < 3500) {
 		EncoderUpdate();
 		if (!HandleStop()) {
 			return;
 		}
-		if (M1Vel > maxVel) {
-			maxVel = M1Vel;
+		if (M1Vel > maxVel1) {
+			maxVel1 = M1Vel;
 		}
-		if (M2Vel > maxVel) {
-			maxVel = M2Vel;
+		if (M2Vel > maxVel2) {
+			maxVel2 = M2Vel;
 		}
 		if (M1Vel < 0.0f || M2Vel < 0.0f) {
 			M1Write(0.0);
@@ -160,7 +164,8 @@ void SelfTest() {
 	}
 	M1Write(0.0);
 	M2Write(0.0);
-	data.max_vel = maxVel;
+	data.max_vel_1 = maxVel1;
+	data.max_vel_2 = maxVel2;
 	WriteData();
 
 	// Get ticks

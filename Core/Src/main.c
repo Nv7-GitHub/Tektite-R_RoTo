@@ -133,6 +133,7 @@ int main(void)
 			EncoderReset();
 		}
 		RunMoves();
+		v = BattVoltage();
 	} else if (STOPPressed()) {
 		while (STOPPressed()) {
 			LEDWrite(255, 0, 0);
