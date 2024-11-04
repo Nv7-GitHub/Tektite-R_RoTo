@@ -61,19 +61,8 @@ void MotorInit() {
 float battMult = 0.0f;
 
 
-bool prevSignM1 = true;
 // Power out, -1 to 1
 void M1Write(float pow) {
-	bool newSign = pow > 0.0f;
-	if (newSign != prevSignM1) {
-		prevSignM1 = newSign;
-		if (newSign) {
-			M1Ticks -= data.config.backlash;
-		} else {
-			M1Ticks += data.config.backlash;
-		}
-	}
-
 	if (pow > 1.0f) {
 		pow = 1.0f;
 	} else if (pow < -1.0f) {
@@ -98,19 +87,8 @@ void M1Write(float pow) {
 	}
 }
 
-bool prevSignM2 = true;
 // Power out, -1 to 1
 void M2Write(float pow) {
-	bool newSign = pow > 0.0f;
-	if (newSign != prevSignM2) {
-		prevSignM2 = newSign;
-		if (newSign) {
-			M2Ticks -= data.config.backlash;
-		} else {
-			M2Ticks += data.config.backlash;
-		}
-	}
-
 	if (pow > 1.0f) {
 		pow = 1.0f;
 	} else if (pow < -1.0f) {
@@ -255,11 +233,11 @@ void EncoderUpdate() {
 	}
 	float dt = ((float)diffT)/1000000.0f;
 	if (data.config.reverse) {
-		updateEncoder(&htim4, &M1Ticks, &M1Vel, &m1prev, dt, 1);
-		updateEncoder(&htim3, &M2Ticks, &M2Vel, &m2prev, dt, -1);
+		updateEncoder(&htim4, &M1Ticks, &M1Vel, &m1prev, dt, 1*data.config.reverseEnc2);
+		updateEncoder(&htim3, &M2Ticks, &M2Vel, &m2prev, dt, -1*data.config.reverseEnc);
 	} else {
-		updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt, -1);
-		updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt, 1);
+		updateEncoder(&htim3, &M1Ticks, &M1Vel, &m1prev, dt, -1*data.config.reverseEnc);
+		updateEncoder(&htim4, &M2Ticks, &M2Vel, &m2prev, dt, 1*data.config.reverseEnc2);
 	}
 	prevEncoderUpdate = currT;
 }

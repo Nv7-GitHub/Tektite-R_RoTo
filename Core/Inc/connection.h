@@ -36,8 +36,9 @@ typedef struct {
 	float kp_velocity;
 	float dowel_off;
 	float imu_weight;
-	int backlash;
-	int reverse; // 0 = false, 1 = true
+	int reverse; // 0 = false, 1 = true, reverse m1 and m2 and directions
+	int reverseEnc; // 1 = false, -1 = true, reverses the sign on one encoder
+	int reverseEnc2; // 1 = false, -1 = true, reverses the sign on the other encoder
 
 	float turn_accel_time;
 	float straight_accel_time;
