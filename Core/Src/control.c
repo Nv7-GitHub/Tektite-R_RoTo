@@ -205,6 +205,11 @@ bool Turn(float deg) {
 				} else {
 					EncoderResetError(0, -dist);
 				}
+				if (m1) {
+					ang -= deg;
+				} else {
+					ang += deg;
+				}
 				HAL_Delay(100);
 				return true;
 			}
